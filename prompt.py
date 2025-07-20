@@ -16,7 +16,7 @@ def create_ocr_prompt() -> ChatPromptTemplate:
 "Normalize number: remove thousand separators ('.', ',', spaces), convert decimal comma to dot, output as JSON number (no quotes), ignore currency symbol. "
 "If multiple candidate monetary numbers and you are not 100% sure which is the valuation, or only percentages/quantities appear -> null. "
 "If blank, '--', unreadable, or a crypto pair (non-fiat) -> null.\n"
-"3. Ignore headers (e.g. Totale, Quantity, P/L, Gain, Return, Valorizzazione), overall portfolio totals (e.g. Totale Portafoglio), dates, times, percentages, fees, unit prices, cost basis. "
+"3. Ignore headers (e.g. Totale, Quantity, P/L, Gain, Return, Valorizzazione, Liquidità, Investimento), overall portfolio totals (e.g. Totale Portafoglio), dates, times, percentages, fees, unit prices, cost basis. "
 "Include 'Cash' only if clearly listed as a holding line (else ignore totals).\n"
 "4. Distinct lots of same asset -> separate objects (key may repeat). Repeated header/footer occurrences -> skip.\n"
 "5. If none found output {{\"assets\": []}}\n"

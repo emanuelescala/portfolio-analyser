@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
+import json
 
 from ocr import OcrChain
+from test import Classificationator
 
 """source $(poetry env info --path)/bin/activate"""
 def main():
@@ -31,14 +33,30 @@ def main():
     )
     args = parser.parse_args()
     
-    ocr_chain = OcrChain(
-        model=args.model,
-        api_key=args.api_key,
-        temperature=args.temperature,
-    )
-    result = ocr_chain.invoke(args.input_image)
+    try:
+        ocr_chain = OcrChain(
+            model=args.model,
+            api_key=args.api_key,
+            temperature=args.temperature,
+        )
+        result = ocr_chain.invoke(args.input_image)
 
-    print("OCR result:", result)
+        print("OCR result:", result)
+        
+        # Converti il risultato JSON in un oggetto Python
+        if isinstance(result, str):
+            json_data = json.loads(result)
+        else:
+            json_data = result
+        
+        result2 = Classificationator(json_data)
+        
+        print("Classification result:", result2)
+        
+    except json.JSONDecodeError as e:
+        print(f"Errore nel parsing JSON: {e}")
+    except Exception as e:
+        print(f"Errore generale: {e}")
 
 if __name__ == "__main__":
     main()
