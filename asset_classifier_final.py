@@ -40,10 +40,16 @@ class ClassificationResult:
 def primo_risultato_investing(result: ClassificationResult) -> ClassificationResult:
     """
     Cerca l'ISIN per un asset usando Google search su investing.com
-    Modifica direttamente il ClassificationResult passato
+    Ottimizza la query per ticker rimuovendo suffissi exchange
     """
     query = result.original_value
-    full_query = f"isin {query} inurl:investing.com"
+    
+    # Ottimizzazione SOLO per ticker: rimuovi suffisso exchange (.MI, .PA, .L, etc.)
+    if result.asset_type == AssetType.TICKER and '.' in query:
+        clean_query = query.split('.')[0]
+        full_query = f'"isin" {clean_query} inurl:investing.com'
+    else:
+        full_query = f'"isin" {query} investing.com'
     
     try:
         from googlesearch import search
@@ -61,7 +67,6 @@ def primo_risultato_investing(result: ClassificationResult) -> ClassificationRes
                     isin_code = isin_match.group(1)
                     result.isin = isin_code
                     return result
-                
                 
                 # Pattern alternativo per ISIN
                 isin_match_alt = re.search(r'([A-Z]{2}[A-Z0-9]{10})', description)
