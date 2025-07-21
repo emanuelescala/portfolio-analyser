@@ -62,6 +62,7 @@ def primo_risultato_investing(result: ClassificationResult) -> ClassificationRes
                     result.isin = isin_code
                     return result
                 
+                
                 # Pattern alternativo per ISIN
                 isin_match_alt = re.search(r'([A-Z]{2}[A-Z0-9]{10})', description)
                 if isin_match_alt:

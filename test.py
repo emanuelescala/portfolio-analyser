@@ -10,7 +10,7 @@ from asset_classifier_final import AssetClassifier
 
 
 def extract_assets(json_result):
-    """Estrae solo gli ISIN dal risultato JSON"""
+    """Estrae asset e valuations/percentuali dal risultato JSON"""
     try:
         # Se è una stringa, parsala come JSON
         if isinstance(json_result, str):
@@ -18,16 +18,32 @@ def extract_assets(json_result):
         else:
             data = json_result
         
-        # Estrai le chiavi (ISIN) da ogni asset
+        # Estrai asset e valuations
         assets = []
         valuations = []
+        
         for asset in data["assets"]:
             for asset_name, valuation in asset.items():
                 assets.append(asset_name)
-                valuations.append(valuation)  # Può essere null/None
+                
+                # Controlla se la valuation è una percentuale
+                if isinstance(valuation, str) and valuation and '%' in valuation:
+                    # Estrai il numero dalla percentuale (gestisce sia virgola che punto)
+                    try:
+                        # Rimuovi % e spazi, sostituisci virgola con punto
+                        clean_percentage = valuation.replace('%', '').strip().replace(',', '.')
+                        percentage_value = float(clean_percentage) / 100
+                        valuations.append(percentage_value)
+                        print(f"DEBUG: {asset_name} -> {valuation} -> {percentage_value}")  # Debug
+                    except ValueError:
+                        valuations.append(None)
+                        print(f"DEBUG: Errore conversione {asset_name}: {valuation}")
+                else:
+                    valuations.append(valuation)
         
         return assets, valuations
-    except:
+    except Exception as e:
+        print(f"Errore in extract_assets: {e}")
         return [], []
 
 
@@ -69,10 +85,23 @@ def Classificationator(json_data):
 
 def weight_calculator(results):
     """Calcola il peso di ogni asset in base al tipo"""
+    # Controlla se ci sono già percentuali definite (da OCR)
+    has_percentages = any(r.weight is not None and 0 <= r.weight <= 1 for r in results)
+    
+    if has_percentages:
+        # Se ci sono percentuali dall'OCR, usale direttamente
+        for result in results:
+            if result.weight is None:
+                result.weight = 0.0  # Assegna 0 se manca
+            # Arrotonda a 2 decimali
+            result.weight = round(result.weight, 3)
+        return results
+    
+    # Altrimenti usa la logica originale
     has_zero_or_none = any(r.weight is None or r.weight == 0 for r in results)
     if has_zero_or_none:
         # Se anche solo un peso è zero o None, dividi tutto in parti uguali
-        equal_weight = round(1.0 / len(results), 2)
+        equal_weight = round(1.0 / len(results), 3)
         for result in results:
             result.weight = equal_weight
         return results

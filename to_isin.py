@@ -19,7 +19,7 @@ def primo_risultato_investing(query: str) -> tuple[str, str,str] | None:
     Esegue una ricerca Google per 'query investing.com' e ritorna
     una tupla (URL, ISIN) del primo risultato. Se non ne trova, restituisce None.
     """
-    full_query = f"isin {query} inurl:investing.com"
+    full_query = f' "isin" {query} inurl:investing.com'
     try:
         # Usa la funzione search avanzata per ottenere anche le descrizioni
         from googlesearch import search

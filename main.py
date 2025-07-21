@@ -41,17 +41,25 @@ def main():
         )
         result = ocr_chain.invoke(args.input_image)
 
-        print("OCR result:", result)
-        
+        print("\n" + "="*50)
+        print("📊 OCR RESULT")
+        print("="*50)
+        print(json.dumps(result if isinstance(result, dict) else json.loads(result), indent=2, ensure_ascii=False))
+
         # Converti il risultato JSON in un oggetto Python
         if isinstance(result, str):
             json_data = json.loads(result)
         else:
             json_data = result
-        
+
         result2 = Classificationator(json_data)
-        
-        print("Classification result:", result2)
+
+        print("\n" + "="*50)
+        print("🎯 CLASSIFICATION RESULT")
+        print("="*50)
+        print(json.dumps(result2, indent=2, ensure_ascii=False))
+
+        print(f"\n📈 Total assets found: {len(result2)}")
         
     except json.JSONDecodeError as e:
         print(f"Errore nel parsing JSON: {e}")
