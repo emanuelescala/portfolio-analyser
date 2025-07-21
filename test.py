@@ -20,19 +20,22 @@ def extract_assets(json_result):
         
         # Estrai le chiavi (ISIN) da ogni asset
         assets = []
+        valuations = []
         for asset in data["assets"]:
-            assets.extend(asset.keys())
+            for asset_name, valuation in asset.items():
+                assets.append(asset_name)
+                valuations.append(valuation)  # Può essere null/None
         
-        return assets
+        return assets, valuations
     except:
-        return []
+        return [], []
 
 
 def Classificationator(json_data):
     """Funzione principale che accetta dati JSON come parametro"""
     try:
         # Estrai gli asset usando la funzione dedicata
-        assets = extract_assets(json_data)
+        assets, valuations = extract_assets(json_data)
         
         if not assets:
             print("Nessun asset trovato nei dati")
@@ -43,16 +46,18 @@ def Classificationator(json_data):
         
         # Classifica ogni asset
         results = []
-        for asset in assets:
+        for i, asset in enumerate(assets):
             result = classifier.classify_asset(str(asset))
+            result.weight = valuations[i] if i < len(valuations) else None
             results.append(result)
-        
+        results = weight_calculator(results)
         # Prepara i risultati
         output_data = [{
             'original_value': r.original_value,
             'asset_type': r.asset_type.value,
             'isin': r.isin,
             'ticker': r.ticker,
+            'weight': r.weight,
             'error_message': r.error_message
         } for r in results]
         
@@ -62,6 +67,22 @@ def Classificationator(json_data):
         print(f"Errore: {e}")
         return []
 
+def weight_calculator(results):
+    """Calcola il peso di ogni asset in base al tipo"""
+    has_zero_or_none = any(r.weight is None or r.weight == 0 for r in results)
+    if has_zero_or_none:
+        # Se anche solo un peso è zero o None, dividi tutto in parti uguali
+        equal_weight = round(1.0 / len(results), 2)
+        for result in results:
+            result.weight = equal_weight
+        return results
+    else:
+        # Altrimenti normalizza i pesi esistenti
+        total_weight = sum(r.weight for r in results)
+        if total_weight > 0:
+            for result in results:
+                result.weight = round(result.weight / total_weight, 2)
+    return results
 
 def main_cli():
     """Funzione per utilizzo da linea di comando"""

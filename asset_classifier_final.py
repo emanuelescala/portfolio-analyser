@@ -9,11 +9,14 @@ import logging
 from typing import List, Optional
 from enum import Enum
 from dataclasses import dataclass
+import sys
+from googlesearch import search
+import re
+from urllib.parse import urlparse
 
 # Configurazione logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
 
 class AssetType(Enum):
     """Enumerazione per i tipi di asset"""
@@ -30,7 +33,76 @@ class ClassificationResult:
     asset_type: AssetType
     isin: Optional[str] = None
     ticker: Optional[str] = None
+    weight: Optional[float] = None
     error_message: Optional[str] = None
+
+
+def primo_risultato_investing(result: ClassificationResult) -> ClassificationResult:
+    """
+    Cerca l'ISIN per un asset usando Google search su investing.com
+    Modifica direttamente il ClassificationResult passato
+    """
+    query = result.original_value
+    full_query = f"isin {query} inurl:investing.com"
+    
+    try:
+        from googlesearch import search
+        search_results = search(full_query, advanced=True)
+        
+        for search_result in search_results:
+            url = search_result.url
+            categoria = estrai_categoria_da_url(url)
+            description = search_result.description
+            
+            # Cerca il pattern ISIN nella descrizione
+            if description:
+                isin_match = re.search(r'ISIN:\s*([A-Z]{2}[A-Z0-9]{10})', description)
+                if isin_match:
+                    isin_code = isin_match.group(1)
+                    result.isin = isin_code
+                    return result
+                
+                # Pattern alternativo per ISIN
+                isin_match_alt = re.search(r'([A-Z]{2}[A-Z0-9]{10})', description)
+                if isin_match_alt:
+                    isin_code = isin_match_alt.group(1)
+                    result.isin = isin_code
+                    return result
+        
+        # Se non trova ISIN, lascia il result invariato
+        result.error_message = "ISIN non trovato su investing.com"
+        return result
+            
+    except Exception as e:
+        result.error_message = f"Errore durante la ricerca: {e}"
+        print(f"[Errore] durante la ricerca: {e}", file=sys.stderr)
+    
+    return result
+
+
+def estrai_categoria_da_url(url: str) -> str | None:
+    """
+    Estrae la categoria dall'URL di investing.com.
+    Ad esempio: da 'https://www.investing.com/etfs/vanguard-ftse...' estrae 'etfs'
+    """
+    try:
+        parsed_url = urlparse(url)
+        # Divide il path per '/' e prende il primo elemento non vuoto
+        path_parts = [part for part in parsed_url.path.split('/') if part]
+        if path_parts:
+            if path_parts[0] == 'etfs':
+                return 'etf'
+            elif path_parts[0] == 'equities':
+                return 'equity'
+            elif path_parts[0] == 'rates-bonds':
+                return 'bond'
+            elif path_parts[0] == 'commodities':
+                return 'commodity'
+            else:
+                return path_parts[0]
+    except Exception as e:
+        print(f"[Errore] nell'estrazione della categoria: {e}", file=sys.stderr)
+    return None
 
 
 class AssetClassifier:
@@ -100,21 +172,36 @@ class AssetClassifier:
             any(indicator in cleaned for indicator in ['.', '&', '-', 'Inc', 'Corp', 'Ltd', 'SpA', 'AG', 'SA'])):
             return True
         
+        return False
     
     def get_isin_from_ticker(self, ticker: str) -> Optional[str]:
         """
-        Ottiene ISIN da ticker (versione semplificata)
-        Per ora restituisce None - da implementare con API esterne se necessario
+        Ottiene ISIN da ticker usando investing.com
         """
-        logger.debug(f"Ricerca ISIN per ticker {ticker} - Non implementato")
-        return None
-    
+        # Crea un result temporaneo
+        temp_result = ClassificationResult(
+            original_value=ticker,
+            asset_type=AssetType.TICKER,
+            ticker=ticker.upper()
+        )
+        
+        # Cerca l'ISIN
+        updated_result = primo_risultato_investing(temp_result)
+        return updated_result.isin
+
     def get_isin_from_name(self, name: str) -> Optional[str]:
         """
-        Ottiene ISIN da nome (placeholder)
+        Ottiene ISIN da nome usando investing.com
         """
-        logger.debug(f"Ricerca ISIN per nome '{name}' - Da implementare")
-        return None
+        # Crea un result temporaneo
+        temp_result = ClassificationResult(
+            original_value=name,
+            asset_type=AssetType.NAME
+        )
+        
+        # Cerca l'ISIN
+        updated_result = primo_risultato_investing(temp_result)
+        return updated_result.isin
     
     def classify_asset(self, asset_value: str) -> ClassificationResult:
         """Classifica un singolo asset (ottimizzato)"""
@@ -156,6 +243,7 @@ class AssetClassifier:
             return ClassificationResult(
                 original_value=asset_value,
                 asset_type=AssetType.UNKNOWN,
+                isin= self.get_isin_from_name(cleaned),
                 error_message="Tipo di asset non riconosciuto"
             )
             
